@@ -16,13 +16,14 @@ widget_points
 import numpy as np
 
 from magicgui import magic_factory, magicgui
-from magicgui.widgets import Container
+from magicgui.widgets import Container, Label
 from napari import layers as L
 from napari import types
 
 
 @magic_factory(
-    call_button='convertRGB'
+    img_layer=dict(tooltip="Select raw Brainbow image"),
+    call_button='convertRGB',
 )
 def widget_cvtRGB(
     viewer: 'napari.Viewer',
@@ -49,6 +50,8 @@ def widget_cvtRGB(
 
 
 @magicgui(
+    img_layer=dict(tooltip="Set maximum contrast limit to 99 percentile of the "
+                   "given image"),
     call_button='normalize(img layer)(perc=99)',
 )
 def widget_norm(
@@ -199,7 +202,12 @@ def _scale_x_default(value):
 
 
 @magicgui(
-    point_size={"widget_type": "Slider", 'value': 10, "max": 15},
+    point_size=dict(
+        tooltip="Change size of all points at once",
+        widget_type="Slider",
+        value=10,
+        max=15
+    ),
     auto_call=True,
     call_button=False,
 )
@@ -229,4 +237,26 @@ class MainWidget(Container):
         widgets[2].label = 'Contrast max'
         widgets[3].label = 'ZYX scale'
         widgets[4].label = 'Points size'
+
+        widget_desc = Label(
+            name='Description',
+            label="Description",
+            value=(
+                "1. Open an image (or drag-and-drop)\n"
+                "2. Convert it to RGB\n"
+                "3. In 'layer list' on the left, right-click \n"
+                "  the image layer and 'Split Stack'. This \n"
+                "  will split channels into layers. This is \n"
+                "  useful when you go 3D (Ctrl+Y).\n"
+                "4. You can adjust 'contrast limits' either \n"
+                "  using 'Normalize' module or 'Contrast max'\n"
+                "5. When you are on 3D view mode (Ctrl+Y), \n"
+                "  z-scale is too short. Increasing it may \n"
+                "  help by 'ZYX scale' slider.\n"
+                "6. When you load a .csv file, it becomes a \n"
+                "  Points layer in napari. You can resize \n"
+                "  points using 'Points size' module.\n"
+            ),
+        )
+        widgets.insert(0, widget_desc)
         super().__init__(layout=layout, widgets=widgets)
