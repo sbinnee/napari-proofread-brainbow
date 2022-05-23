@@ -260,3 +260,16 @@ class MainWidget(Container):
         )
         widgets.insert(0, widget_desc)
         super().__init__(layout=layout, widgets=widgets)
+
+
+@magic_factory(
+    img_layer=dict(tooltip="Select raw probability image"),
+    threshold=dict(widget_type='FloatSlider',
+                   min=0, max=1.0, step=0.01, value=0.5),
+    auto_call=True
+)
+def threshold_prob(
+    img_layer: L.Image,
+    threshold
+) -> types.LabelsData:
+    return img_layer.data.copy() > threshold
