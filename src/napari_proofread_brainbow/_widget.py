@@ -242,20 +242,17 @@ class MainWidget(Container):
             name='Description',
             label="Description",
             value=(
-                "1. Open an image (or drag-and-drop)\n"
-                "2. Convert it to RGB\n"
-                "3. In 'layer list' on the left, right-click \n"
-                "  the image layer and 'Split Stack'. This \n"
-                "  will split channels into layers. This is \n"
-                "  useful when you go 3D (Ctrl+Y).\n"
-                "4. You can adjust 'contrast limits' either \n"
-                "  using 'Normalize' module or 'Contrast max'\n"
-                "5. When you are on 3D view mode (Ctrl+Y), \n"
-                "  z-scale is too short. Increasing it may \n"
-                "  help by 'ZYX scale' slider.\n"
-                "6. When you load a .csv file, it becomes a \n"
-                "  Points layer in napari. You can resize \n"
-                "  points using 'Points size' module.\n"
+                "1. Open an image (or drag-and-drop)                         \n"
+                "2. Convert it to RGB                                        \n"
+                "3. In 'layer list' on the left, right-click the image layer \n"
+                "  and 'Split Stack'. This will split channels into layers.  \n"
+                "  This is useful when you go 3D (Ctrl+Y).                   \n"
+                "4. You can adjust 'contrast limits' either using 'Normalize'\n"
+                "module or 'Contrast max'                                    \n"
+                "5. When you are on 3D view mode (Ctrl+Y), z-scale is too    \n"
+                "  short. Increasing it may help by 'ZYX scale' slider.      \n"
+                "6. When you load a .csv file, it becomes a Points layer in  \n"
+                "  napari. You can resize points using 'Points size' module. \n"
             ),
         )
         widgets.insert(0, widget_desc)
