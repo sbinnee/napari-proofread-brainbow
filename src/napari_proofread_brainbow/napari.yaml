@@ -12,4 +12,4 @@ contributions:
     - command: napari-proofread-brainbow.make_qwidget
       display_name: Proofread Brainbow
     - command: napari-proofread-brainbow.threshold_prob
-      display_name: Threshold probability map
+      display_name: Threshold probability (csv)

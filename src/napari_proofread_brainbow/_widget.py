@@ -14,6 +14,7 @@ widget_points
     Change size of points at once
 """
 import numpy as np
+from typing import Optional
 
 from magicgui import magic_factory, magicgui
 from magicgui.widgets import Container, Label
@@ -259,14 +260,34 @@ class MainWidget(Container):
         super().__init__(layout=layout, widgets=widgets)
 
 
+# @magic_factory(
+#     img_layer=dict(tooltip="Select raw probability image"),
+#     threshold=dict(widget_type='FloatSlider',
+#                    min=0, max=1.0, step=0.01, value=0.5),
+#     auto_call=True
+# )
+# def threshold_prob(
+#     img_layer: L.Image,
+#     threshold
+# ) -> types.LabelsData:
+#     return img_layer.data.copy() > threshold
+
+
 @magic_factory(
-    img_layer=dict(tooltip="Select raw probability image"),
+    # point_layer=dict(tooltip="Select probability csv"),
     threshold=dict(widget_type='FloatSlider',
                    min=0, max=1.0, step=0.01, value=0.5),
     auto_call=True
 )
 def threshold_prob(
-    img_layer: L.Image,
+    point_layer: L.Points,
     threshold
-) -> types.LabelsData:
-    return img_layer.data.copy() > threshold
+) -> types.LayerDataTuple:
+    if 'probability' in point_layer.properties:
+        prob = point_layer.properties['probability']
+        data = point_layer.data.copy()[prob > threshold]
+        kwargs = {
+            'name': 'threshold_prob',
+            'edge_color': 'red',
+        }
+        return (data, kwargs, 'points')
