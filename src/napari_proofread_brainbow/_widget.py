@@ -285,9 +285,11 @@ def threshold_prob(
 ) -> types.LayerDataTuple:
     if 'probability' in point_layer.properties:
         prob = point_layer.properties['probability']
-        data = point_layer.data.copy()[prob > threshold]
+        m = prob > threshold
+        data = point_layer.data.copy()[m]
         kwargs = {
             'name': 'threshold_prob',
             'edge_color': 'red',
+            'properties': {'probability': prob[m]},
         }
         return (data, kwargs, 'points')
