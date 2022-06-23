@@ -36,7 +36,9 @@ def widget_cvtRGB(
     # print(data.shape, data.ndim, data.dtype)
     if data.ndim == 4:
         # assume (z, c=3, y, x) or (c=3, z, y, x)
-        if data.shape[-1] != 3:
+        if data.shape[-1] == 3:
+            return None
+        elif data.shape[1] == 3:
             # (z, c=3, y, x)
             # data = img_layer.data.transpose(1, 0, 2, 3)
             viewer.layers.pop(viewer.layers.index(img_layer))
@@ -44,8 +46,14 @@ def widget_cvtRGB(
                 name=img_layer.name + '_rgb'
             )
             return (data.transpose(0, 2, 3, 1), kwargs, 'image')
-        else:
-            return None
+        elif data.shape[0] == 3:
+            # (c=3, z, y, x)
+            # data = img_layer.data.transpose(1, 0, 2, 3)
+            viewer.layers.pop(viewer.layers.index(img_layer))
+            kwargs = dict(
+                name=img_layer.name + '_rgb'
+            )
+            return (data.transpose(1, 2, 3, 0), kwargs, 'image')
     else:
         return None
 
