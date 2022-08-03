@@ -14,7 +14,6 @@ widget_points
     Change size of points at once
 """
 import numpy as np
-from typing import Optional
 
 from magicgui import magic_factory, magicgui
 from magicgui.widgets import Container, Label
@@ -281,6 +280,154 @@ class MainWidget(Container):
 #     return img_layer.data.copy() > threshold
 
 
+class ThresholdPoints(L.Points):
+    """Same as Points layer with additional data callbacks
+    """
+
+    _max_points_thumbnail = 1024
+
+    def __init__(
+        self,
+        data=None,
+        *,
+        ndim=None,
+        features=None,
+        properties=None,
+        text=None,
+        symbol='o',
+        size=10,
+        edge_width=0.1,
+        edge_width_is_relative=True,
+        edge_color='black',
+        edge_color_cycle=None,
+        edge_colormap='viridis',
+        edge_contrast_limits=None,
+        face_color='white',
+        face_color_cycle=None,
+        face_colormap='viridis',
+        face_contrast_limits=None,
+        out_of_slice_display=False,
+        n_dimensional=None,
+        name=None,
+        metadata=None,
+        scale=None,
+        translate=None,
+        rotate=None,
+        shear=None,
+        affine=None,
+        opacity=1,
+        blending='translucent',
+        visible=True,
+        cache=True,
+        property_choices=None,
+        experimental_clipping_planes=None,
+        shading='none',
+        experimental_canvas_size_limits=(0, 10000),
+        shown=True,
+    ):
+        super().__init__(
+            data=data,
+            ndim=ndim,
+            features=features,
+            properties=properties,
+            text=text,
+            symbol=symbol,
+            size=size,
+            edge_width=edge_width,
+            edge_width_is_relative=edge_width_is_relative,
+            edge_color=edge_color,
+            edge_color_cycle=edge_color_cycle,
+            edge_colormap=edge_colormap,
+            edge_contrast_limits=edge_contrast_limits,
+            face_color=face_color,
+            face_color_cycle=face_color_cycle,
+            face_colormap=face_colormap,
+            face_contrast_limits=face_contrast_limits,
+            out_of_slice_display=out_of_slice_display,
+            n_dimensional=n_dimensional,
+            name=name,
+            metadata=metadata,
+            scale=scale,
+            translate=translate,
+            rotate=rotate,
+            shear=shear,
+            affine=affine,
+            opacity=opacity,
+            blending=blending,
+            visible=visible,
+            cache=cache,
+            property_choices=property_choices,
+            experimental_clipping_planes=experimental_clipping_planes,
+            shading=shading,
+            experimental_canvas_size_limits=experimental_canvas_size_limits,
+            shown=shown,
+        )
+
+    def add(self, coord):
+        """Adds point at coordinate. (Override napari.Points.add)
+
+        Parameters
+        ----------
+        coord : sequence of indices to add point at
+        """
+        self.data = np.append(self.data, np.atleast_2d(coord), axis=0)
+        # begin(ThresholdPoints)
+        ind = max(self._id_offset, self.properties['id'][-2]) + 1
+        self.properties['id'][-1] = ind
+        self.properties['probability'][-1] = 1.0
+        source_points = self.source_points
+        source_points.add(coord)
+        source_points.properties['id'][-1] = ind
+        source_points.properties['probability'][-1] = 1.0
+        # coloring
+        self.edge_color[-1] = [0.0, 1.0, 0.0, 1.0]  # green
+        # end(ThresholdPoints)
+
+    def remove_selected(self):
+        """Removes selected points if any. (Override napari.Points.remove_selected)
+        """
+        index = list(self.selected_data)
+        index.sort()
+        if len(index):
+            # begin(ThresholdPoints)
+            selected_ids = [self.properties['id'][i] for i in index]
+            # end(ThresholdPoints)
+            self._shown = np.delete(self._shown, index, axis=0)
+            self._size = np.delete(self._size, index, axis=0)
+            self._edge_width = np.delete(self._edge_width, index, axis=0)
+            with self._edge.events.blocker_all():
+                self._edge._remove(indices_to_remove=index)
+            with self._face.events.blocker_all():
+                self._face._remove(indices_to_remove=index)
+            self._feature_table.remove(index)
+            self.text.remove(index)
+            if self._value in self.selected_data:
+                self._value = None
+            else:
+                if self._value is not None:
+                    # update the index of self._value to account for the
+                    # data being removed
+                    indices_removed = np.array(index) < self._value
+                    offset = np.sum(indices_removed)
+                    self._value -= offset
+                    self._value_stored -= offset
+
+            self.data = np.delete(self.data, index, axis=0)
+            self.selected_data = set()
+            # begin(ThresholdPoints)
+            source_points = self.source_points
+            source_index = [source_points.properties['id'].tolist().index(i)
+                            for i in selected_ids]
+            source_points.selected_data = set(source_index)
+            source_points.remove_selected()
+            # end(ThresholdPoints)
+
+    @property
+    def _type_string(self):
+        """If not set, it set to classname. It's used for save()"""
+        return 'points'
+
+
 @magic_factory(
     # point_layer=dict(tooltip="Select probability csv"),
     threshold=dict(widget_type='FloatSlider',
@@ -288,16 +435,37 @@ class MainWidget(Container):
     auto_call=True
 )
 def threshold_prob(
+    viewer: 'napari.Viewer',
     point_layer: L.Points,
     threshold
-) -> types.LayerDataTuple:
+) -> L.Points:
     if 'probability' in point_layer.properties:
         prob = point_layer.properties['probability']
+        ids = np.arange(len(prob))
         m = prob > threshold
         data = point_layer.data.copy()[m]
-        kwargs = {
-            'name': 'threshold_prob',
-            'edge_color': 'red',
-            'properties': {'probability': prob[m]},
-        }
-        return (data, kwargs, 'points')
+        # new Points
+        name = 'threshold_prob'
+        names = [layer.name for layer in viewer.layers]
+        if name in names:
+            points = viewer.layers[names.index(name)]
+            # update
+            points.data = data
+            points.properties = dict(id=ids[m],
+                                     probability=prob[m])
+        else:
+            # Create 'threshold_prob' layer (custom ThresholdPoints).
+            # ThresholdPoints is a subclass of napari.layers.Points.
+            points = ThresholdPoints(
+                data=data,
+                name=name,
+                edge_color='red',
+                # add properties
+                properties=dict(id=ids[m],  # assign id
+                                probability=prob[m]),  # copy probability
+            )
+            points.source_points = point_layer
+            points._id_offset = ids[-1]
+            # Add 'id' properties
+            point_layer.features['id'] = ids
+            return points
