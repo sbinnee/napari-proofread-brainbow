@@ -13,6 +13,8 @@ widget_scale
 widget_points
     Change size of points at once
 """
+from itertools import tee
+
 import numpy as np
 
 from magicgui import magic_factory, magicgui
@@ -228,6 +230,91 @@ def widget_points(
     point_layer.size = point_size
 
 
+@magic_factory(
+    xbins=dict(
+        widget_type='Slider',
+        value=5,
+        step=1,
+        min=2,
+        max=10,
+    ),
+    ybins=dict(
+        widget_type='Slider',
+        value=5,
+        step=1,
+        min=2,
+        max=10,
+    ),
+    # thickness = dict(
+    #     widget_type='FloatSlider',
+    #     value=1,
+    #     step=0.1,
+    #     min=1,
+    #     max=10,
+    # ),
+    # auto_call=True
+    call_button='make grid'
+)
+def widget_grid(
+    img_layer: 'napari.layers.Image',
+    xbins,
+    ybins,
+) -> types.LayerDataTuple:
+    def pairwise(x):
+        a, b = tee(x)
+        next(b, None)
+        return zip(a, b)
+
+    shape = img_layer.data.shape
+    width = shape[-2] if shape[-1] == 3 else shape[-1]
+    height = shape[-3] if shape[-1] == 3 else shape[-2]
+    bins_x = np.linspace(0, width, xbins+1, endpoint=True)
+    bins_y = np.linspace(0, height, ybins+1, endpoint=True)
+    data = []
+    # vertical
+    for x in bins_x:
+        # coord [[y0, x0], [y1, x1]]
+        data.append(np.array([[0, x], [height, x]]))
+    # horizontal
+    for y in bins_y:
+        data.append(np.array([[y, 0], [y, width]]))
+    # dummies for text
+    # a pair of `features` and `text` argument can be used to put text on shape
+    # object. but it does not support defining a translation for each obeject.
+    XLABELS = 'ABCDEFGHIJ'
+    yoffset = - height * 0.05
+    xoffset = - width * 0.05
+    for x0, x1 in pairwise(bins_x):
+        data.append(np.array([[yoffset, x0], [yoffset, x1]]))
+        ...
+    for y0, y1 in pairwise(bins_y):
+        data.append(np.array([[y0, xoffset], [y1, xoffset]]))
+        ...
+
+    text = {
+        'string': '{number}',
+        # 'anchor': ''
+        # 'translation': [0, 0],
+        'size': 16,
+        'color': 'lime',
+    }
+    features = {
+        'number': (
+            ['' for _ in range(xbins + ybins + 2)] +  # empty for grid
+            [XLABELS[i] for i in range(xbins)] +  # ABCD...
+            list(range(ybins))  # 123..
+        )
+    }
+    kwargs = dict(
+        name=f'grid({img_layer.name})',
+        shape_type='line',
+        # edge_width=thickness,
+        features=features,
+        text=text,
+    )
+    return (data, kwargs, 'shapes')
+
+
 class MainWidget(Container):
     def __init__(
         self,
@@ -238,6 +325,7 @@ class MainWidget(Container):
             widget_contrast_limits_all,  # 2
             widget_scale,     # 3
             widget_points,    # 4
+            widget_grid(),    # 5
         ]
     ):
         widgets[0].label = 'Convert to RGB'
@@ -245,6 +333,7 @@ class MainWidget(Container):
         widgets[2].label = 'Contrast max'
         widgets[3].label = 'ZYX scale'
         widgets[4].label = 'Points size'
+        widgets[5].label = 'Grid'
 
         widget_desc = Label(
             name='Description',
