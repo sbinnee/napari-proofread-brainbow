@@ -102,7 +102,9 @@ def widget_contrast_limits_all(
 ):
     for l in viewer.layers:
         if isinstance(l, L.Image):
-            l.contrast_limits = [l.contrast_limits[0], contrast_limits_vmax]
+            _min = l.contrast_limits[0]
+            if contrast_limits_vmax > _min:
+                l.contrast_limits = [l.contrast_limits[0], contrast_limits_vmax]
 
 
 @magicgui(
