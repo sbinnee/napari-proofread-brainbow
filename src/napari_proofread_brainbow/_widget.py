@@ -180,7 +180,8 @@ def _scale_z_default(value):
     for l in viewer.layers:
         if hasattr(l, 'scale'):
             # print(f"set scale of {l.name} to {scale}")
-            l.scale = scale
+            if isinstance(l, (L.Image, L.Points)):
+                l.scale = scale
 
 
 @widget_scale.scale_y_default.changed.connect
