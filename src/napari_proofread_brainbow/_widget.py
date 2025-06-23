@@ -344,7 +344,7 @@ class MainWidget(Container):
                 "1. Open an image (or drag-and-drop)                         \n"
                 "2. Convert it to RGB                                        \n"
                 "3. In 'layer list' on the left, right-click the image layer \n"
-                "  and 'Split Stack'. This will split channels into layers.  \n"
+                "  and 'Split RGB'. This will split channels into layers.    \n"
                 "  This is useful when you go 3D (Ctrl+Y).                   \n"
                 "4. You can adjust 'contrast limits' either using 'Normalize'\n"
                 "module or 'Contrast max'                                    \n"
@@ -352,6 +352,9 @@ class MainWidget(Container):
                 "  short. Increasing it may help by 'ZYX scale' slider.      \n"
                 "6. When you load a .csv file, it becomes a Points layer in  \n"
                 "  napari. You can resize points using 'Points size' module. \n"
+                "IMPORTANT. The order of layers matters. Make sure that      \n"
+                "Points layers are placed above Image layers so that points  \n"
+                "can appear properly."
             ),
         )
         widgets.insert(0, widget_desc)
@@ -394,18 +397,19 @@ class ThresholdPoints(L.Points):
         ----------
         coord : sequence of indices to add point at
         """
-        self.data = np.append(self.data, np.atleast_2d(coord), axis=0)
-        # begin(ThresholdPoints)
+        super().add(coord)
+        # -2 because the new point is already added.
         ind = max(self._id_offset, self.properties['id'][-2]) + 1
+        self._id_offset = ind
+        self.border_color[-1] = [0.0, 1.0, 0.0, 1.0]  # green
+        # overriding properties
         self.properties['id'][-1] = ind
         self.properties['probability'][-1] = 1.0
         source_points = self.source_points
         source_points.add(coord)
+        # match 'id' and 'probability'
         source_points.properties['id'][-1] = ind
         source_points.properties['probability'][-1] = 1.0
-        # coloring
-        self.edge_color[-1] = [0.0, 1.0, 0.0, 1.0]  # green
-        # end(ThresholdPoints)
 
     def remove_selected(self):
         """Removes selected points if any. (Override napari.Points.remove_selected)
@@ -413,35 +417,12 @@ class ThresholdPoints(L.Points):
         index = list(self.selected_data)
         index.sort()
         if len(index):
-            # begin(ThresholdPoints)
-            selected_ids = [self.properties['id'][i] for i in index]
-            # end(ThresholdPoints)
-            self._shown = np.delete(self._shown, index, axis=0)
-            self._size = np.delete(self._size, index, axis=0)
-            self._edge_width = np.delete(self._edge_width, index, axis=0)
-            with self._edge.events.blocker_all():
-                self._edge._remove(indices_to_remove=index)
-            with self._face.events.blocker_all():
-                self._face._remove(indices_to_remove=index)
-            self._feature_table.remove(index)
-            self.text.remove(index)
-            if self._value in self.selected_data:
-                self._value = None
-            else:
-                if self._value is not None:
-                    # update the index of self._value to account for the
-                    # data being removed
-                    indices_removed = np.array(index) < self._value
-                    offset = np.sum(indices_removed)
-                    self._value -= offset
-                    self._value_stored -= offset
-
-            self.data = np.delete(self.data, index, axis=0)
-            self.selected_data = set()
-            # begin(ThresholdPoints)
             source_points = self.source_points
-            source_index = [source_points.properties['id'].tolist().index(i)
-                            for i in selected_ids]
+            selected_ids = [self.properties['id'][i] for i in index]
+            source_ids = source_points.properties['id'].tolist()
+            source_index = [source_ids.index(i) for i in selected_ids]
+            # remove
+            super().remove_selected()
             source_points.selected_data = set(source_index)
             source_points.remove_selected()
             # end(ThresholdPoints)
@@ -456,7 +437,8 @@ class ThresholdPoints(L.Points):
     # point_layer=dict(tooltip="Select probability csv"),
     threshold=dict(widget_type='FloatSlider',
                    min=0, max=1.0, step=0.01, value=0.5),
-    auto_call=True
+    auto_call=True,
+    call_button=True,
 )
 def threshold_prob(
     viewer: 'napari.Viewer',
@@ -465,25 +447,27 @@ def threshold_prob(
 ) -> L.Points:
     if 'probability' in point_layer.properties:
         prob = point_layer.properties['probability']
-        ids = np.arange(len(prob))
         m = prob > threshold
-        data = point_layer.data.copy()[m]
-        # new Points
+        # update Points
         name = 'threshold_prob'
         names = [layer.name for layer in viewer.layers]
         if name in names:
             points = viewer.layers[names.index(name)]
+            ids = point_layer.properties['id']
             # update
-            points.data = data
+            points.data = point_layer.data[m]
             points.properties = dict(id=ids[m],
                                      probability=prob[m])
         else:
+            # new Points
             # Create 'threshold_prob' layer (custom ThresholdPoints).
             # ThresholdPoints is a subclass of napari.layers.Points.
+            ids = np.arange(len(prob))
+            m = prob > threshold
             points = ThresholdPoints(
-                data=data,
+                data=point_layer.data.copy()[m],
                 name=name,
-                edge_color='red',
+                border_color='red',
                 # add properties
                 properties=dict(id=ids[m],  # assign id
                                 probability=prob[m]),  # copy probability
